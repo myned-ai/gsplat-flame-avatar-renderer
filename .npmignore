@@ -1,0 +1,12 @@
+# Files to ignore when publishing to npm
+node_modules/
+src/
+*.md
+!README.md
+rollup.config.js
+eslint.config.js
+.git/
+.gitignore
+.npmrc
+*.log
+*.tgz
