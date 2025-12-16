@@ -4,6 +4,11 @@
 
 A specialized Gaussian Splatting library for rendering animated 3D avatars with FLAME parametric head model support and ARKit blendshape compatibility.
 
+<<<<<<< HEAD
+=======
+**~11,000 lines of JavaScript across 48 source files**
+
+>>>>>>> 8335ef8cfc0d19230edd16225b4210af014d0e6a
 ## Features
 
 - 🎭 **52 ARKit Blendshapes** — Complete facial expression control
@@ -225,8 +230,11 @@ This library is built upon the work of several open-source projects:
 
 ### gaussian-splat-renderer-for-lam
 **FLAME avatar extensions and high-level API.**
+<<<<<<< HEAD
 - npm package: https://www.npmjs.com/package/gaussian-splat-renderer-for-lam
 - License: MIT
+=======
+>>>>>>> 8335ef8cfc0d19230edd16225b4210af014d0e6a
 - Used for: FLAME model integration, animation state machine, FlameAnimator, FlameTextureManager, GPU skinning shaders
 
 ### FLAME Model
@@ -234,3 +242,53 @@ This library is built upon the work of several open-source projects:
 - Website: https://flame.is.tue.mpg.de/
 - Institution: Max Planck Institute for Intelligent Systems
 - Used for: 5-bone skeleton, 52 ARKit blendshapes, LBS skinning weights
+<<<<<<< HEAD
+=======
+
+---
+
+## Code Attribution Summary
+
+| Category | Source | Files |
+|----------|--------|-------|
+| **Core Rendering** | GaussianSplats3D | ~35 files (buffers, loaders, raycaster, worker, enums, utils) |
+| **FLAME Integration** | gaussian-splat-renderer-for-lam | ~12 files (flame/*, renderer/*, materials/*) |
+| **Heavily Modified** | Both sources merged | 6 files (Viewer.js, SplatMesh.js, SplatMaterial*.js) |
+| **3D Foundation** | Three.js | External dependency |
+
+### Modified Files (Merged from Both Sources)
+
+| File | Base | Additions |
+|------|------|-----------|
+| `core/Viewer.js` | GS3D | +900 lines FLAME code |
+| `core/SplatMesh.js` | GS3D | +800 lines FLAME code |
+| `materials/SplatMaterial.js` | GS3D | +530 lines FLAME shaders |
+| `materials/SplatMaterial2D.js` | GS3D | +60 lines FLAME shaders |
+| `materials/SplatMaterial3D.js` | GS3D | +50 lines FLAME shaders |
+
+---
+
+## License
+
+MIT License
+
+Copyright (c) 2024
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+>>>>>>> 8335ef8cfc0d19230edd16225b4210af014d0e6a
