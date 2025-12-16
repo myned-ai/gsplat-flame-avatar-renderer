@@ -1,5 +1,5 @@
 {
-  "name": "gsplat-flame-avatar-renderer",
+  "name": "@myned-ai/gsplat-flame-avatar-renderer",
   "version": "1.0.0",
   "description": "FLAME-enabled Gaussian Splatting library for animated avatars with ARKit blendshape support",
   "main": "dist/gsplat-flame-avatar-renderer.umd.js",

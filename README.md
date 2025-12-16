@@ -208,6 +208,36 @@ Rollup produces 4 bundles in `dist/`:
 
 ---
 
+## Development
+
+```bash
+# Clone the repo
+git clone https://github.com/AntonisMakworimedia/gsplat-flame-avatar-renderer.git
+cd gsplat-flame-avatar-renderer
+
+# Install dependencies
+npm install
+
+# Start dev mode (watch for changes)
+npm run dev
+
+# Lint code
+npm run lint
+
+# Build for production
+npm run build
+```
+
+### Publishing
+
+```bash
+# Bump version and push tag (triggers CI publish)
+npm version patch  # or minor, major
+git push --follow-tags
+```
+
+---
+
 ## Credits & Attribution
 
 This library is built upon the work of several open-source projects:
