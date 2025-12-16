@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output (uncomment if you want to track dist)
+# dist/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# npm
+*.tgz
+.npmrc
+
+# Environment
+.env
+.env.local
