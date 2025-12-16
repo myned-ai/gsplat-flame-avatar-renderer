@@ -124,14 +124,9 @@ avatar.zip
 
 ### Rendering Pipeline
 
-```mermaid
-flowchart LR
-    A[Loading<br/>PLY] --> B[Initialization<br/>Viewer]
-    B --> C[Scene Setup<br/>SplatMesh]
-    C --> D[Animation<br/>FLAME]
-    D --> E[Transform<br/>Update]
-    E --> F[Sorting<br/>WebAssembly]
-    F --> G[Drawing<br/>WebGL]
+```
+Loading (PLY) → Initialization (Viewer) → Scene Setup (SplatMesh) → Animation (FLAME)
+→ Transform Update → Sorting (WebAssembly) → Drawing (WebGL)
 ```
 
 1. **Loading**: Assets fetched from ZIP, PLY parsed via INRIAV1PlyParser
