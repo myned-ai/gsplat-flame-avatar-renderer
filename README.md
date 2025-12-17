@@ -203,16 +203,6 @@ Rollup produces 4 bundles in `dist/`:
 
 ---
 
-### Publishing
-
-```bash
-# Bump version and push tag (triggers CI publish)
-npm version patch  # or minor, major
-git push --follow-tags
-```
-
----
-
 ## Credits & Attribution
 
 This library is built upon the work of several open-source projects:
