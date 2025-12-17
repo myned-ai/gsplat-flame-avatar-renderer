@@ -181,14 +181,14 @@ The library supports hybrid rendering where Gaussian Splat positions are deforme
 
 ## Build Output
 
-Rollup produces 4 bundles in `dist/`:
+Rollup produces ESM and CommonJS bundles in `dist/`:
 
 | File | Format |
 |------|--------|
-| `gsplat-flame-avatar.esm.js` | ES Module |
-| `gsplat-flame-avatar.esm.min.js` | ES Module (minified) |
-| `gsplat-flame-avatar.umd.js` | UMD |
-| `gsplat-flame-avatar.umd.min.js` | UMD (minified) |
+| `gsplat-flame-avatar-renderer.esm.js` | ES Module (ESM) — for modern bundlers and browsers |
+| `gsplat-flame-avatar-renderer.cjs.js` | CommonJS (CJS) — for Node `require()` consumers |
+
+Builds include inline source maps. Type declarations are available at `dist/index.d.ts`, and the package publishes the `src/` folder for source inspection.
 
 ---
 
