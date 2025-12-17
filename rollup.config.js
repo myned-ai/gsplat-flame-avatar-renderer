@@ -8,7 +8,7 @@ export default [
     output: {
       file: 'dist/gsplat-flame-avatar-renderer.esm.js',
       format: 'esm',
-      sourcemap: true
+      sourcemap: 'inline'
     },
     external
   },
@@ -18,7 +18,7 @@ export default [
     output: {
       file: 'dist/gsplat-flame-avatar-renderer.cjs.js',
       format: 'cjs',
-      sourcemap: true
+      sourcemap: 'inline'
     },
     external
   }
