@@ -53,14 +53,7 @@
     "README.md",
     "LICENSE"
   ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/myned-ai/gsplat-flame-avatar.git"
-  },
-  "bugs": {
-    "url": "https://github.com/myned-ai/gsplat-flame-avatar/issues"
-  },
-  "homepage": "https://github.com/myned-ai/gsplat-flame-avatar#readme",
+  "homepage": "https://www.myned.ai",
   "engines": {
     "node": ">=16.0.0"
   },
