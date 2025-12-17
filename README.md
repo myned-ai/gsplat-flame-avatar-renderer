@@ -1,6 +1,6 @@
 # gsplat-flame-avatar-renderer
 
-[![npm version](https://img.shields.io/npm/v/gsplat-flame-avatar-renderer.svg)](https://www.npmjs.com/package/gsplat-flame-avatar-renderer)
+[![npm version](https://img.shields.io/npm/v/@myned-ai/gsplat-flame-avatar-renderer.svg)](https://www.npmjs.com/package/@myned-ai/gsplat-flame-avatar-renderer)
 
 A specialized Gaussian Splatting library for rendering animated 3D avatars with FLAME parametric head model support, LAM (Large Avatar Model) head avatars, and ARKit blendshape compatibility.
 
@@ -202,26 +202,6 @@ Rollup produces 4 bundles in `dist/`:
 **Requires WebGL 2.0 support.**
 
 ---
-
-## Development
-
-```bash
-# Clone the repo
-git clone https://github.com/AntonisMakworimedia/gsplat-flame-avatar-renderer.git
-cd gsplat-flame-avatar-renderer
-
-# Install dependencies
-npm install
-
-# Start dev mode (watch for changes)
-npm run dev
-
-# Lint code
-npm run lint
-
-# Build for production
-npm run build
-```
 
 ### Publishing
 
