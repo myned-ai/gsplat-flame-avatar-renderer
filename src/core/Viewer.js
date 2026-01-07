@@ -12,12 +12,12 @@
  */
 
 import { Bone, DynamicDrawUsage, InstancedBufferAttribute, MathUtils, Matrix4, OrthographicCamera, PerspectiveCamera, Quaternion, Scene, Skeleton, Vector2, Vector3, WebGLRenderer } from 'three';
-import { 
-    getCurrentTime, 
-    clamp, 
-    delayedExecute, 
-    isIOS, 
-    getIOSSemever, 
+import {
+    getCurrentTime,
+    clamp,
+    delayedExecute,
+    isIOS,
+    getIOSSemever,
     Semver,
     fetchWithProgress,
     nativePromiseWithExtractedComponents,
@@ -25,6 +25,9 @@ import {
     disposeAllMeshes,
     AbortedPromiseError
 } from '../utils/Util.js';
+import { getLogger } from '../utils/Logger.js';
+
+const logger = getLogger('Viewer');
 import { RenderMode } from '../enums/RenderMode.js';
 import { LogLevel } from '../enums/LogLevel.js';
 import { SplatRenderMode } from '../enums/SplatRenderMode.js';
@@ -415,15 +418,8 @@ export class Viewer {
 
     this.lastTime = 0;
     this.gaussianSplatCount = 0;
-    this.totalFrames = 0; 
-    this.flame_params = null;
-    this.bone_tree = null;
-    this.lbs_weight_80k = null;
+    this.totalFrames = 0;
     this.frame = 0;
-  
-    this.useFlame = true;
-    this.bones = null;
-    this.skeleton = null;
     this. avatarMesh = null;
     this.skinModel = null;
     this.boneRoot = null;
@@ -449,6 +445,9 @@ export class Viewer {
       this.sceneFadeInRateMultiplier,
       this.kernel2DSize
     );
+
+    // Pass iris occlusion config if loaded
+    this.splatMesh.irisOcclusionConfig = this.irisOcclusionConfig;
     this.splatMesh.frustumCulled = false;
     if (this.onSplatMeshChangedCallback) this.onSplatMeshChangedCallback();
   }
@@ -613,8 +612,6 @@ export class Viewer {
         false
       );
       this.keyDownListener = this.onKeyDown.bind(this);
-      // 暂时去掉键盘事件的监听
-      // window.addEventListener('keydown', this.keyDownListener, false)
     }
   }
 
@@ -979,7 +976,7 @@ export class Viewer {
       this.splatMesh.scenes &&
       this.splatMesh.scenes.length > 0
     ) {
-      console.log(
+      logger.warn(
         'addSplatScene(): "progressiveLoad" option ignore because there are multiple splat scenes'
       );
       options.progressiveLoad = false;
@@ -1035,7 +1032,7 @@ export class Viewer {
             }
           }
         } else if (loaderStatus === LoaderStatus.Processing) {
-          console.log('loaderStatus === LoaderStatus.Processing');
+          logger.debug('loaderStatus === LoaderStatus.Processing');
           this.loadingSpinner.setMessageForTask(
             loadingUITaskId,
             'Processing splats...'
@@ -1280,7 +1277,7 @@ export class Viewer {
         this.removeSplatSceneDownloadPromise(splatSceneDownloadPromise);
       })
       .catch((e) => {
-        console.error('Viewer::addSplatScene actual error:', e);
+        logger.error('Viewer::addSplatScene actual error:', e);
         this.clearSplatSceneDownloadAndBuildPromise();
         this.removeSplatSceneDownloadPromise(splatSceneDownloadPromise);
         const error =
@@ -1691,7 +1688,6 @@ export class Viewer {
               0,
               e.data.splatRenderCount
             );
-            // console.log(sortedIndexes);
             this.splatMesh.updateRenderIndexes(
               sortedIndexes,
               e.data.splatRenderCount
@@ -1714,7 +1710,7 @@ export class Viewer {
           this.sortRunning = false;
         } else if (e.data.sortSetupPhase1Complete) {
           if (this.logLevel >= LogLevel.Info)
-            console.log('Sorting web worker WASM setup complete.');
+            logger.info('Sorting web worker WASM setup complete.');
           if (this.sharedMemoryForWorkers) {
             this.sortWorkerSortedIndexes = new Uint32Array(
               e.data.sortedIndexesBuffer,
@@ -1750,17 +1746,17 @@ export class Viewer {
           this.sortWorker.maxSplatCount = maxSplatCount;
 
           if (this.logLevel >= LogLevel.Info) {
-            console.log('Sorting web worker ready.');
+            logger.info('Sorting web worker ready.');
             const splatDataTextures = this.splatMesh.getSplatDataTextures();
             const covariancesTextureSize = splatDataTextures.covariances.size;
             const centersColorsTextureSize = splatDataTextures.centerColors.size;
-            console.log(
+            logger.info(
               'Covariances texture size: ' +
                 covariancesTextureSize.x +
                 ' x ' +
                 covariancesTextureSize.y
             );
-            console.log(
+            logger.info(
               'Centers/colors texture size: ' +
                 centersColorsTextureSize.x +
                 ' x ' +
@@ -2695,113 +2691,14 @@ export class Viewer {
     return navigator.userAgent.includes('Mobi')
   }
 
-  createBonesFromJson(bonesJson) {
-    const bones = [];
-
-    function createBoneRecursive(jsonBone, parent = null) {
-      const bone = new Bone();
-      bone.name = jsonBone.name;
-      if (parent) {
-        parent.add(bone);
-      }
-      bone.position.set(...jsonBone.position);
-      bones.push(bone);
-
-      if (jsonBone.children) {
-        jsonBone.children.forEach((childJsonBone) =>
-          createBoneRecursive(childJsonBone, bone)
-        );
-      }
-      return bone
-    }
-
-    bonesJson.forEach((boneJson) => createBoneRecursive(boneJson));
-
-    return bones
-  }
-
   updateMorphTarget(inputMesh) {
     this.avatarMesh = inputMesh;
     this.splatMesh.flameModel = inputMesh;
-    this.splatMesh.useFlameModel = this.useFlame;
-    if(this.useFlame == true) {
-        // const skinData = {
-        //     bones: [
-        //         {
-        //         "name": "root",
-        //         "position": [-1.7149e-04, -1.4252e-01, -8.2541e-02],
-        //         "children": [
-        //             {
-        //             "name": "neck",
-        //             "position": [-5.6988e-05, -1.6069e-02, -5.7859e-02],
-                    
-        //             "children": [
-        //                 {
-        //                 "name": "jaw",
-        //                     "position": [7.4429e-04, -8.7249e-03, -5.3760e-02]
-
-        //                 },
-        //                 {
-        //                 "name": "leftEye",
-        //                 "position": [  3.0240e-02,  2.3092e-02,  2.2900e-02]
-        //                 },
-        //                 {
-        //                 "name": "rightEye",
-        //                 "position": [-3.0296e-02,  2.3675e-02,  2.1837e-02]
-        //                 }
-        //             ]
-        //             }
-        //         ]
-        //         }
-        //     ] 
-        // };
-
-        // this.bones = this.createBonesFromJson(skinData.bones);
-        this.bones = this.createBonesFromJson(this.bone_tree["bones"]);
-
-        const bonesPosReserve = [new Vector3(this.bones[0].position.x, this.bones[0].position.y, this.bones[0].position.z),
-        new Vector3(this.bones[1].position.x, this.bones[1].position.y, this.bones[1].position.z),
-        new Vector3(this.bones[2].position.x, this.bones[2].position.y, this.bones[2].position.z),
-        new Vector3(this.bones[3].position.x, this.bones[3].position.y, this.bones[3].position.z),
-        new Vector3(this.bones[4].position.x, this.bones[4].position.y, this.bones[4].position.z)
-        ];
-        this.bones[1].position.copy(new Vector3(bonesPosReserve[1].x - bonesPosReserve[0].x, bonesPosReserve[1].y - bonesPosReserve[0].y, bonesPosReserve[1].z - bonesPosReserve[0].z));
-        this.bones[2].position.copy(new Vector3(bonesPosReserve[2].x - bonesPosReserve[1].x, bonesPosReserve[2].y - bonesPosReserve[1].y, bonesPosReserve[2].z - bonesPosReserve[1].z));
-        this.bones[3].position.copy(new Vector3(bonesPosReserve[3].x - bonesPosReserve[1].x, bonesPosReserve[3].y - bonesPosReserve[1].y, bonesPosReserve[3].z - bonesPosReserve[1].z));
-        this.bones[4].position.copy(new Vector3(bonesPosReserve[4].x - bonesPosReserve[1].x, bonesPosReserve[4].y - bonesPosReserve[1].y, bonesPosReserve[4].z - bonesPosReserve[1].z));
-        
-        this.bones[0].updateMatrixWorld(true);
-        const boneInverses = [this.bones[0].matrixWorld.clone().invert(),
-                                this.bones[1].matrixWorld.clone().invert(),
-                                this.bones[2].matrixWorld.clone().invert(),
-                                this.bones[3].matrixWorld.clone().invert(),
-                                this.bones[4].matrixWorld.clone().invert()];
-
-        this.skeleton = new Skeleton(this.bones, boneInverses);
-    }
 
     this.runMorphUpdate();
     this.splatMesh.gaussianSplatCount = this.gaussianSplatCount;
   }
 
-  updatedBoneMatrices(boneNum){
-    let updatedBoneMatrices = [];
-    for (let j = 0; j < boneNum; j++) { 
-        let boneMatrix;
-        boneMatrix =  this.skeleton.bones[j].matrixWorld.clone().multiply(this.skeleton.boneInverses[j].clone());
-
-        function addMatrixToArray(matrix, array) {
-            let elements = matrix.elements; 
-            for (let i = 0; i < elements.length; i++) {
-                array.push(elements[i]);
-            }
-        }
-        
-        addMatrixToArray(boneMatrix, updatedBoneMatrices);
-    }
-    let bonesMatrix = new Float32Array(updatedBoneMatrices);
-    return bonesMatrix;
-}
   runMorphUpdate() {
     this.gaussianSplatCount = this.avatarMesh.geometry.attributes.position.count;
     var morphedMesh = new Float32Array(
@@ -2809,87 +2706,41 @@ export class Viewer {
     );
     const numBones = 5;
     this.splatMesh.bonesNum = numBones;
-    if (this.useFlame == false) 
-    {
-        this.skinModel.skeleton.update();
-        this.boneRoot.updateMatrixWorld(true);
-        if (this.splatMesh.geometry.getAttribute('splatIndex') && this.setSkinAttibutes === false) {
 
-          this.setSkinAttibutes = true;
-          const geometry = this.splatMesh.geometry;
+    this.skinModel.skeleton.update();
+    this.boneRoot.updateMatrixWorld(true);
+    if (this.splatMesh.geometry.getAttribute('splatIndex') && this.setSkinAttibutes === false) {
 
-          const skinIndexSource = this.skinModel.geometry.attributes.skinIndex;
-          const skinWeightSource = this.skinModel.geometry.attributes.skinWeight;
+      this.setSkinAttibutes = true;
+      const geometry = this.splatMesh.geometry;
 
-          const newSkinIndex = new InstancedBufferAttribute(
-              new skinIndexSource.array.constructor(skinIndexSource.array), 
-              4,
-              skinIndexSource.normalized,
-              1
-          );
-          
-          const newSkinWeight = new InstancedBufferAttribute(
-              new skinWeightSource.array.constructor(skinWeightSource.array), 
-              4,
-              skinWeightSource.normalized,
-              1
-          );
-          newSkinIndex.setUsage(DynamicDrawUsage);
-          newSkinWeight.setUsage(DynamicDrawUsage);
-          geometry.setAttribute('skinIndex', newSkinIndex);
-          geometry.setAttribute('skinWeight', newSkinWeight);
-      }
-    } else {
-        this.updateFlameBones();
+      const skinIndexSource = this.skinModel.geometry.attributes.skinIndex;
+      const skinWeightSource = this.skinModel.geometry.attributes.skinWeight;
+
+      const newSkinIndex = new InstancedBufferAttribute(
+          new skinIndexSource.array.constructor(skinIndexSource.array),
+          4,
+          skinIndexSource.normalized,
+          1
+      );
+
+      const newSkinWeight = new InstancedBufferAttribute(
+          new skinWeightSource.array.constructor(skinWeightSource.array),
+          4,
+          skinWeightSource.normalized,
+          1
+      );
+      newSkinIndex.setUsage(DynamicDrawUsage);
+      newSkinWeight.setUsage(DynamicDrawUsage);
+      geometry.setAttribute('skinIndex', newSkinIndex);
+      geometry.setAttribute('skinWeight', newSkinWeight);
     }
-    
+
     this.splatMesh.morphedMesh = morphedMesh;
 
     let splatNum = this.splatMesh.morphedMesh.length / 3;
     if (this.splatMesh.splatDataTextures['flameModel'] != undefined) {
-      this.splatMesh.updateTetureAfterBSAndSkeleton(0, splatNum - 1, this.useFlame);
+      this.splatMesh.updateTetureAfterBSAndSkeleton(0, splatNum - 1, false);
     }
-  }
-
-  updateFlameBones(){
-    this.splatMesh.bsWeight = this.flame_params['expr'][this.frame];
-
-    function setBoneRotationAndMatrix(bone, angles, isQuat = false) {
-        let quaternion;
-        if(isQuat == true) {
-            quaternion = new Quaternion(angles[0], angles[1], angles[2], angles[3]);
-        } else {
-            const value = new Vector3(angles[0], angles[1], angles[2]);
-            const angleInRadians = value.length();
-            const axis = value.normalize();
-            quaternion = new Quaternion().setFromAxisAngle(axis, angleInRadians);
-        }
-        bone.quaternion.copy(quaternion);
-        bone.updateMatrixWorld(true);
-    }
-
-    let angle = this.flame_params['rotation'][this.frame];
-
-    setBoneRotationAndMatrix(this.skeleton.bones[0], angle);
-
-    angle = this.flame_params['neck_pose'][this.frame];
-    setBoneRotationAndMatrix(this.skeleton.bones[1], angle);
-
-    angle = this.flame_params['jaw_pose'][this.frame];
-    setBoneRotationAndMatrix(this.skeleton.bones[2], angle);
-
-    angle = this.flame_params['eyes_pose'][this.frame];
-    setBoneRotationAndMatrix(this.skeleton.bones[3], angle);
-
-    setBoneRotationAndMatrix(this.skeleton.bones[4], [angle[3], angle[4], angle[5]]);
-
-    // update skeleton
-    this.skeleton.update();
-
-    const numBones = 5;
-    const bonesMatrix = this.updatedBoneMatrices(numBones);
-    this.splatMesh.bonesMatrix = bonesMatrix;
-    this.splatMesh.bonesNum = numBones;
-    this.splatMesh.bonesWeight = this.lbs_weight_80k;
   }
 }

@@ -36,6 +36,7 @@ export default [
                 ImageData: 'readonly',
                 OffscreenCanvas: 'readonly',
                 ResizeObserver: 'readonly',
+                HTMLElement: 'readonly',
                 atob: 'readonly',
                 btoa: 'readonly',
                 // TypedArrays

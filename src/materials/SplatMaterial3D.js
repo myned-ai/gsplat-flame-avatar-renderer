@@ -28,7 +28,7 @@ export class SplatMaterial3D {
      * @return {THREE.ShaderMaterial}
      */
     static build(dynamicMode = false, enableOptionalEffects = false, antialiased = false, maxScreenSpaceSplatSize = 2048,
-                 splatScale = 1.0, pointCloudModeEnabled = false, maxSphericalHarmonicsDegree = 0, kernel2DSize = 0.3, useFlame = true) {
+                 splatScale = 1.0, pointCloudModeEnabled = false, maxSphericalHarmonicsDegree = 0, kernel2DSize = 0.3, irisOcclusionConfig = null) {
 
         const customVertexVars = `
             uniform vec2 covariancesTextureSize;
@@ -46,11 +46,12 @@ export class SplatMaterial3D {
             }
         `;
 
+        // Add a varying for iris splats
         let vertexShaderSource = SplatMaterial.buildVertexShaderBase(dynamicMode, enableOptionalEffects,
-                                                                     maxSphericalHarmonicsDegree, customVertexVars, useFlame);
+                                         maxSphericalHarmonicsDegree, customVertexVars);
         vertexShaderSource += SplatMaterial3D.buildVertexShaderProjection(antialiased, enableOptionalEffects,
-                                                                          maxScreenSpaceSplatSize, kernel2DSize);
-        const fragmentShaderSource = SplatMaterial3D.buildFragmentShader();
+                                          maxScreenSpaceSplatSize, kernel2DSize);
+        const fragmentShaderSource = SplatMaterial3D.buildFragmentShader(irisOcclusionConfig);
 
         const uniforms = SplatMaterial.getUniforms(dynamicMode, enableOptionalEffects,
                                                    maxSphericalHarmonicsDegree, splatScale, pointCloudModeEnabled);
@@ -229,48 +230,92 @@ export class SplatMaterial3D {
         return vertexShaderSource;
     }
 
-    static buildFragmentShader() {
+    static buildFragmentShader(irisOcclusionConfig = null) {
         let fragmentShaderSource = `
             precision highp float;
             #include <common>
- 
-            uniform vec3 debugColor;
+
+            uniform float eyeBlinkLeft;
+            uniform float eyeBlinkRight;
 
             varying vec4 vColor;
             varying vec2 vUv;
             varying vec2 vPosition;
             varying vec2 vSplatIndex;
-
         `;
 
         fragmentShaderSource += `
             void main () {
-                // Compute the positional squared distance from the center of the splat to the current fragment.
                 float A = dot(vPosition, vPosition);
-                // Since the positional data in vPosition has been scaled by sqrt(8), the squared result will be
-                // scaled by a factor of 8. If the squared result is larger than 8, it means it is outside the ellipse
-                // defined by the rectangle formed by vPosition. It also means it's farther
-                // away than sqrt(8) standard deviations from the mean.
+                float opacity = exp(-0.5 * A) * vColor.a;
+                if (opacity < 1.0 / 255.0)
+                    discard;
+                `;
 
-                // if(vSplatIndex.x > 20000.0) discard;
-                // if (A > 8.0) discard;
-                vec3 color = vColor.rgb;
+        // Generate iris occlusion code only if config exists
+        if (irisOcclusionConfig && (irisOcclusionConfig.right_iris || irisOcclusionConfig.left_iris)) {
+            fragmentShaderSource += `
+                float idx = vSplatIndex.x;
+                `;
 
-                // Since the rendered splat is scaled by sqrt(8), the inverse covariance matrix that is part of
-                // the gaussian formula becomes the identity matrix. We're then left with (X - mean) * (X - mean),
-                // and since 'mean' is zero, we have X * X, which is the same as A:
-                float opacity = exp( -0.5*A) * vColor.a;
-                if(opacity < 1.0 / 255.0)
+            // Generate right iris checks
+            if (irisOcclusionConfig.right_iris && irisOcclusionConfig.right_iris.length > 0) {
+                const rightConditions = irisOcclusionConfig.right_iris
+                    .map(([start, end]) => `(idx >= ${start}.0 && idx <= ${end}.0)`)
+                    .join(' ||\n                                   ');
+
+                fragmentShaderSource += `
+                // Check if this splat is part of right iris
+                bool isRightIris = ${rightConditions};
+                `;
+            } else {
+                fragmentShaderSource += `
+                bool isRightIris = false;
+                `;
+            }
+
+            // Generate left iris checks
+            if (irisOcclusionConfig.left_iris && irisOcclusionConfig.left_iris.length > 0) {
+                const leftConditions = irisOcclusionConfig.left_iris
+                    .map(([start, end]) => `(idx >= ${start}.0 && idx <= ${end}.0)`)
+                    .join(' ||\n                                  ');
+
+                fragmentShaderSource += `
+                // Check if this splat is part of left iris
+                bool isLeftIris = ${leftConditions};
+                `;
+            } else {
+                fragmentShaderSource += `
+                bool isLeftIris = false;
+                `;
+            }
+
+            fragmentShaderSource += `
+                float finalOpacity = opacity;
+
+                // Smooth fade: iris fades out as eye closes (blink increases)
+                // smoothstep(0.1, 0.5, blink) = 0 when blink<0.1, 1 when blink>0.5
+                if (isRightIris) {
+                    float fadeFactor = 1.0 - smoothstep(0.1, 0.5, eyeBlinkRight);
+                    finalOpacity = opacity * fadeFactor;
+                } else if (isLeftIris) {
+                    float fadeFactor = 1.0 - smoothstep(0.1, 0.5, eyeBlinkLeft);
+                    finalOpacity = opacity * fadeFactor;
+                }
+
+                if (finalOpacity < 1.0 / 255.0)
                     discard;
 
-                // uint a = uint(255);
-                // vec3 c = vec3(vSplatIndex.x / 256.0 / 256.0, float(uint(vSplatIndex.x / 256.0 )% a) / 256.0, float(uint(vSplatIndex.x)% a) / 256.0);
-                // gl_FragColor = vec4(c, 1.0);
-                gl_FragColor = vec4(color, opacity);
-
-
+                gl_FragColor = vec4(vColor.rgb, finalOpacity);
             }
         `;
+        } else {
+            // No iris occlusion - simple rendering
+            fragmentShaderSource += `
+                gl_FragColor = vec4(vColor.rgb, opacity);
+            }
+        `;
+        }
 
         return fragmentShaderSource;
     }

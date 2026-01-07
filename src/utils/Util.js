@@ -1,27 +1,39 @@
 /**
  * Core utility functions for Gaussian Splat rendering
- * 
+ *
  * Derived from @mkkellogg/gaussian-splats-3d (MIT License)
  * https://github.com/mkkellogg/GaussianSplats3D
- * 
+ *
  * Import paths adjusted for gsplat-flame-avatar package structure.
  */
 
 import { DataUtils } from 'three';
+import { NetworkError } from '../errors/index.js';
+import { getLogger } from './Logger.js';
+
+const logger = getLogger('Util');
 
 /**
  * Custom error for aborted operations
+ * @deprecated Use NetworkError instead for consistency
  */
 export class AbortedPromiseError extends Error {
     constructor(msg) {
         super(msg);
         this.name = 'AbortedPromiseError';
+        this.code = 'ABORTED';
     }
 }
 
 /**
  * Fetch with progress tracking using standard AbortController
- * Returns a Promise with an attached `abort()` method and `abortController`
+ *
+ * @param {string} path - URL to fetch
+ * @param {Function} [onProgress] - Progress callback (percent, percentLabel, chunk, fileSize)
+ * @param {boolean} [saveChunks=true] - Whether to save and return downloaded chunks
+ * @param {object} [headers] - Optional HTTP headers
+ * @returns {Promise<ArrayBuffer>} Promise that resolves with downloaded data
+ * @throws {NetworkError} If fetch fails or is aborted
  */
 export const fetchWithProgress = function(path, onProgress, saveChunks = true, headers) {
 
@@ -32,9 +44,14 @@ export const fetchWithProgress = function(path, onProgress, saveChunks = true, h
     let onProgressCalledAtComplete = false;
     const localOnProgress = (percent, percentLabel, chunk, fileSize) => {
         if (onProgress && !onProgressCalledAtComplete) {
-            onProgress(percent, percentLabel, chunk, fileSize);
-            if (percent === 100) {
-                onProgressCalledAtComplete = true;
+            try {
+                onProgress(percent, percentLabel, chunk, fileSize);
+                if (percent === 100) {
+                    onProgressCalledAtComplete = true;
+                }
+            } catch (error) {
+                // Don't let progress callback errors break the download
+                logger.error('Error in progress callback:', error);
             }
         }
     };
@@ -42,20 +59,33 @@ export const fetchWithProgress = function(path, onProgress, saveChunks = true, h
     const promise = new Promise((resolve, reject) => {
         const fetchOptions = { signal };
         if (headers) fetchOptions.headers = headers;
-        
+
         fetch(path, fetchOptions)
         .then(async (data) => {
-            // Handle error conditions where data is still returned
+            // Handle HTTP error responses
             if (!data.ok) {
-                const errorText = await data.text();
-                reject(new Error(`Fetch failed: ${data.status} ${data.statusText} ${errorText}`));
+                let errorText = '';
+                try {
+                    errorText = await data.text();
+                } catch {
+                    // Ignore if we can't read error text
+                }
+                reject(new NetworkError(
+                    `Fetch failed: ${data.statusText}${errorText ? ' - ' + errorText : ''}`,
+                    data.status
+                ));
                 return;
             }
 
-            const reader = data.body.getReader();
+            const reader = data.body?.getReader();
+            if (!reader) {
+                reject(new NetworkError('Response body is not readable', 0));
+                return;
+            }
+
             let bytesDownloaded = 0;
-            let _fileSize = data.headers.get('Content-Length');
-            let fileSize = _fileSize ? parseInt(_fileSize) : undefined;
+            const _fileSize = data.headers.get('Content-Length');
+            const fileSize = _fileSize ? parseInt(_fileSize, 10) : undefined;
 
             const chunks = [];
 
@@ -76,7 +106,7 @@ export const fetchWithProgress = function(path, onProgress, saveChunks = true, h
                     let percent;
                     let percentLabel;
                     if (fileSize !== undefined) {
-                        percent = bytesDownloaded / fileSize * 100;
+                        percent = (bytesDownloaded / fileSize) * 100;
                         percentLabel = `${percent.toFixed(2)}%`;
                     }
                     if (saveChunks) {
@@ -84,16 +114,27 @@ export const fetchWithProgress = function(path, onProgress, saveChunks = true, h
                     }
                     localOnProgress(percent, percentLabel, chunk, fileSize);
                 } catch (error) {
-                    reject(error);
+                    reject(new NetworkError(
+                        `Error reading response stream: ${error.message}`,
+                        0,
+                        error
+                    ));
                     return;
                 }
             }
         })
         .catch((error) => {
-            if (error.name === 'AbortError') {
-                reject(new AbortedPromiseError('Fetch aborted'));
+            // Don't wrap if already a NetworkError
+            if (error instanceof NetworkError) {
+                reject(error);
+            } else if (error.name === 'AbortError') {
+                reject(new NetworkError('Fetch aborted by user', 0, error));
             } else {
-                reject(new AbortedPromiseError(error.message || error));
+                reject(new NetworkError(
+                    `Fetch failed: ${error.message || 'Unknown error'}`,
+                    0,
+                    error
+                ));
             }
         });
     });

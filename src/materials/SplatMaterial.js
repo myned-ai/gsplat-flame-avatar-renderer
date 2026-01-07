@@ -16,14 +16,9 @@ import { Constants } from '../enums/EngineConstants.js';
 
 export class SplatMaterial {
 
-    static buildVertexShaderBase(dynamicMode = false, enableOptionalEffects = false, maxSphericalHarmonicsDegree = 0, customVars = '', useFlame = true) {
-        let vertexShaderSource = ``;
-        if (useFlame == true) {
-            vertexShaderSource += `#define USE_FLAME`;
-        } else {
-            vertexShaderSource += `#define USE_SKINNING`;
-        }
-        vertexShaderSource += `
+    static buildVertexShaderBase(dynamicMode = false, enableOptionalEffects = false, maxSphericalHarmonicsDegree = 0, customVars = '') {
+        let vertexShaderSource = `#define USE_SKINNING
+
         precision highp float;
         #include <common>
 
@@ -755,6 +750,14 @@ export class SplatMaterial {
             'headBoneIndex': {
                 'type': 'f',
                 'value': -1.0
+            },
+            'eyeBlinkLeft': {
+                'type': 'f',
+                'value': 0.0
+            },
+            'eyeBlinkRight': {
+                'type': 'f',
+                'value': 0.0
             }
         };
         for (let i = 0; i < Constants.MaxScenes; i++) {
@@ -815,7 +818,7 @@ class SplatMaterial3D {
      * @return {THREE.ShaderMaterial}
      */
     static build(dynamicMode = false, enableOptionalEffects = false, antialiased = false, maxScreenSpaceSplatSize = 2048,
-                 splatScale = 1.0, pointCloudModeEnabled = false, maxSphericalHarmonicsDegree = 0, kernel2DSize = 0.3, useFlame = true) {
+                 splatScale = 1.0, pointCloudModeEnabled = false, maxSphericalHarmonicsDegree = 0, kernel2DSize = 0.3) {
 
         const customVertexVars = `
             uniform vec2 covariancesTextureSize;
@@ -834,7 +837,7 @@ class SplatMaterial3D {
         `;
 
         let vertexShaderSource = SplatMaterial.buildVertexShaderBase(dynamicMode, enableOptionalEffects,
-                                                                     maxSphericalHarmonicsDegree, customVertexVars, useFlame);
+                                                                     maxSphericalHarmonicsDegree, customVertexVars);
         vertexShaderSource += SplatMaterial3D.buildVertexShaderProjection(antialiased, enableOptionalEffects,
                                                                           maxScreenSpaceSplatSize, kernel2DSize);
         const fragmentShaderSource = SplatMaterial3D.buildFragmentShader();

@@ -27,4 +27,5 @@ Thumbs.db
 .env.local
 
 # Temporary files
+sample_avatar
 *.txt

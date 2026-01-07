@@ -22,6 +22,9 @@ import { SplatTree } from './SplatTree.js';
 import { SplatMaterial3D } from '../materials/SplatMaterial3D.js';
 import { SplatMaterial2D } from '../materials/SplatMaterial2D.js';
 import { getSphericalHarmonicsComponentCountForDegree, uintEncodedFloat, rgbaArrayToInteger, clamp } from '../utils/Util.js';
+import { getLogger } from '../utils/Logger.js';
+
+const logger = getLogger('SplatMesh');
 
 // Dummy geometry and material for initial Mesh construction
 const dummyGeometry = new BufferGeometry();
@@ -91,7 +94,7 @@ function WebGLExtensions$1(gl) {
         get: function(name) {
             const extension = getExtension(name);
             if (extension === null) {
-                console.warn('THREE.WebGLRenderer: ' + name + ' extension not supported.');
+                logger.warn('THREE.WebGLRenderer: ' + name + ' extension not supported.');
             }
             return extension;
         }
@@ -138,7 +141,7 @@ function WebGLCapabilities$1(gl, extensions, parameters) {
     const maxPrecision = getMaxPrecision(precision);
 
     if (maxPrecision !== precision) {
-        console.warn('THREE.WebGLRenderer:', precision, 'not supported, using', maxPrecision, 'instead.');
+        logger.warn('THREE.WebGLRenderer:', precision, 'not supported, using', maxPrecision, 'instead.');
         precision = maxPrecision;
     }
 
@@ -396,7 +399,6 @@ export class SplatMesh extends Mesh {
         this.bonesNum = null;
         this.bonesWeight = null;
         this.gaussianSplatCount = null;
-        this.useFlameModel = true;
 
         this.morphTargetDictionary = null;
         this.distancesTransformFeedback = {
@@ -415,6 +417,9 @@ export class SplatMesh extends Mesh {
 
         this.globalSplatIndexToLocalSplatIndexMap = [];
         this.globalSplatIndexToSceneIndexMap = [];
+
+        // Optional iris occlusion configuration from avatar ZIP
+        this.irisOcclusionConfig = null;
 
         this.lastBuildSplatCount = 0;
         this.lastBuildScenes = [];
@@ -531,7 +536,7 @@ export class SplatMesh extends Mesh {
             }, onSplatTreeIndexesUpload, onSplatTreeConstruction)
             .then(() => {
                 const buildTime = performance.now() - buildStartTime;
-                if (this.logLevel >= LogLevel.Info) console.log('SplatTree build: ' + buildTime + ' ms');
+                if (this.logLevel >= LogLevel.Info) logger.info('SplatTree build: ' + buildTime + ' ms');
                 if (this.disposed) {
                     resolve();
                 } else {
@@ -554,11 +559,11 @@ export class SplatMesh extends Mesh {
                         }
                     });
                     if (this.logLevel >= LogLevel.Info) {
-                        console.log(`SplatTree leaves: ${this.splatTree.countLeaves()}`);
-                        console.log(`SplatTree leaves with splats:${leavesWithVertices}`);
+                        logger.info(`SplatTree leaves: ${this.splatTree.countLeaves()}`);
+                        logger.info(`SplatTree leaves with splats:${leavesWithVertices}`);
                         avgSplatCount = avgSplatCount / nodeCount;
-                        console.log(`Avg splat count per node: ${avgSplatCount}`);
-                        console.log(`Total splat count: ${this.getSplatCount()}`);
+                        logger.info(`Avg splat count per node: ${avgSplatCount}`);
+                        logger.info(`Total splat count: ${this.getSplatCount()}`);
                     }
                     resolve();
                 }
@@ -655,7 +660,7 @@ export class SplatMesh extends Mesh {
             if (this.splatRenderMode === SplatRenderMode.ThreeD) {
                 this.material = SplatMaterial3D.build(this.dynamicMode, this.enableOptionalEffects, this.antialiased,
                                                       this.maxScreenSpaceSplatSize, this.splatScale, this.pointCloudModeEnabled,
-                                                      this.minSphericalHarmonicsDegree, this.kernel2DSize, this.useFlameModel);
+                                                      this.minSphericalHarmonicsDegree, this.kernel2DSize, this.irisOcclusionConfig);
             } else {
                 this.material = SplatMaterial2D.build(this.dynamicMode, this.enableOptionalEffects,
                                                       this.splatScale, this.pointCloudModeEnabled, this.minSphericalHarmonicsDegree);
@@ -1188,17 +1193,18 @@ export class SplatMesh extends Mesh {
         };
         this.material.uniforms.sceneCount.value = this.scenes.length;
 
-        this.expressionBSNum = this.flameModel.geometry.morphAttributes.position.length;
-        this.material.uniforms.bsCount.value = this.expressionBSNum;
+        // FLAME-specific setup (only if flameModel has required data)
+        if (this.flameModel && this.flameModel.geometry && this.flameModel.geometry.morphAttributes && this.flameModel.skeleton) {
+            this.expressionBSNum = this.flameModel.geometry.morphAttributes.position.length;
+            this.material.uniforms.bsCount.value = this.expressionBSNum;
 
-        this.flameModel.skeleton.bones.forEach((bone, index) => {
-            if (bone.name == 'head')
-                this.material.uniforms.headBoneIndex.value = index;
-          });
+            this.flameModel.skeleton.bones.forEach((bone, index) => {
+                if (bone.name == 'head')
+                    this.material.uniforms.headBoneIndex.value = index;
+            });
 
-        this.buildModelTexture(this.flameModel);
-        this.buildBoneMatrixTexture();
-        if(this.useFlameModel) {
+            this.buildModelTexture(this.flameModel);
+            this.buildBoneMatrixTexture();
             this.buildBoneWeightTexture(this.flameModel);
         }
     }
@@ -1206,21 +1212,25 @@ export class SplatMesh extends Mesh {
     buildBoneMatrixTexture() {
         if (!this.bsWeight)
             return
+
+        // Guard: Requires FLAME model with morphTargetDictionary
+        if (!this.flameModel || !this.flameModel.morphTargetDictionary) {
+            return;
+        }
+
         //this.bonesNum + this.expressionBSNum / 4 = 30, so 32
         const boneTextureSize = new Vector2(4, 32);
         let boneMatrixTextureData = new Float32Array(this.bonesMatrix);
         let boneMatrixTextureDataInt = new Uint32Array(boneTextureSize.x * boneTextureSize.y * 4);
         this.morphTargetDictionary = this.flameModel.morphTargetDictionary;
 
-        if(this.useFlameModel) {
-            for (let c = 0; c < this.bonesNum * 16; c++) {
-                boneMatrixTextureDataInt[c] = uintEncodedFloat(boneMatrixTextureData[c]);
-            }
-            if (this.flameModel && this.flameModel.skeleton) {
-                this.material.uniforms.boneTexture0.value = this.flameModel.skeleton.boneTexture;
-                this.material.uniforms.bindMatrix.value = this.flameModel.bindMatrix;
-                this.material.uniforms.bindMatrixInverse.value = this.flameModel.bindMatrixInverse;
-            }
+        for (let c = 0; c < this.bonesNum * 16; c++) {
+            boneMatrixTextureDataInt[c] = uintEncodedFloat(boneMatrixTextureData[c]);
+        }
+        if (this.flameModel && this.flameModel.skeleton) {
+            this.material.uniforms.boneTexture0.value = this.flameModel.skeleton.boneTexture;
+            this.material.uniforms.bindMatrix.value = this.flameModel.bindMatrix;
+            this.material.uniforms.bindMatrixInverse.value = this.flameModel.bindMatrixInverse;
         }
         for (const key in this.bsWeight) {
             if (Object.hasOwn(this.bsWeight, key)) {
@@ -1252,16 +1262,9 @@ export class SplatMesh extends Mesh {
         this.splatDataTextures.baseData['boneMatrix'] = boneMatrixTextureDataInt;
     }
 
-    updateBoneMatrixTexture(updateFlameBoneMatrix = false) {
+    updateBoneMatrixTexture() {
         if (!this.bsWeight || !this.morphTargetDictionary)
             return
-
-        if(updateFlameBoneMatrix == true) {
-            let boneMatrixTextureData = new Float32Array(this.bonesMatrix);
-            for (let c = 0; c < this.bonesNum * 16; c++) {
-                this.splatDataTextures.baseData['boneMatrix'][c] = uintEncodedFloat(boneMatrixTextureData[c]);
-            }
-        }
 
         for (const key in this.bsWeight) {
             if (Object.hasOwn(this.bsWeight, key)) {
@@ -1289,6 +1292,11 @@ export class SplatMesh extends Mesh {
     }
 
     buildBoneWeightTexture(flameModel) {
+        // Guard: bonesWeight is required for FLAME bone weight texture building
+        if (!this.bonesWeight) {
+            return;
+        }
+
         let shapedMesh = flameModel.geometry.attributes.position.array;
 
         let pointNum = shapedMesh.length / 3;
@@ -1328,6 +1336,11 @@ export class SplatMesh extends Mesh {
 
 
     buildModelTexture(flameModel) {
+        // Guard: Requires FLAME model with morph attributes
+        if (!flameModel || !flameModel.geometry || !flameModel.geometry.morphAttributes || !flameModel.morphTargetDictionary) {
+            return;
+        }
+
         const flameModelTexSize = new Vector2(4096, 2048);
 
         var shapedMesh = flameModel.geometry.attributes.position.array;
@@ -1337,9 +1350,6 @@ export class SplatMesh extends Mesh {
         let bsLength = flameModel.geometry.morphAttributes.position.length;
 
         const morphTargetNames = Object.keys(flameModel.morphTargetDictionary);
-        // if (this.useFlameModel == false) {
-        //     morphTargetNames.sort(); 
-        // }
         morphTargetNames.forEach((name, newIndex) => {
             const originalIndex = flameModel.morphTargetDictionary[name];
             var bsMesh = flameModel.geometry.morphAttributes.position[originalIndex];
@@ -1377,7 +1387,7 @@ export class SplatMesh extends Mesh {
         this.splatDataTextures.baseData['flameModelPos'] = flameModelData;
     }
 
-    updateTetureAfterBSAndSkeleton(fromSplat, toSplat, useFlameModel = true) {
+    updateTetureAfterBSAndSkeleton(fromSplat, toSplat) {
         const sceneTransform = new Matrix4();
 
         this.getSceneTransform(0, sceneTransform);
@@ -1398,7 +1408,7 @@ export class SplatMesh extends Mesh {
                                     fromSplat, toSplat);
         }
 
-        this.updateBoneMatrixTexture(useFlameModel);
+        this.updateBoneMatrixTexture();
     }
 
     updateBaseDataFromSplatBuffers(fromSplat, toSplat) {
@@ -1946,7 +1956,7 @@ export class SplatMesh extends Mesh {
             const createShader = (gl, type, source) => {
                 const shader = gl.createShader(type);
                 if (!shader) {
-                    console.error('Fatal error: gl could not create a shader object.');
+                    logger.error('Fatal error: gl could not create a shader object.');
                     return null;
                 }
 
@@ -1959,7 +1969,7 @@ export class SplatMesh extends Mesh {
                     if (type === gl.VERTEX_SHADER) typeName = 'vertex shader';
                     else if (type === gl.FRAGMENT_SHADER) typeName = 'fragement shader';
                     const errors = gl.getShaderInfoLog(shader);
-                    console.error('Failed to compile ' + typeName + ' with these errors:' + errors);
+                    logger.error('Failed to compile ' + typeName + ' with these errors:' + errors);
                     gl.deleteShader(shader);
                     return null;
                 }
@@ -2046,7 +2056,7 @@ export class SplatMesh extends Mesh {
                 const linked = gl.getProgramParameter(program, gl.LINK_STATUS);
                 if (!linked) {
                     const error = gl.getProgramInfoLog(program);
-                    console.error('Fatal error: Failed to link program: ' + error);
+                    logger.error('Fatal error: Failed to link program: ' + error);
                     gl.deleteProgram(program);
                     gl.deleteShader(fragmentShader);
                     gl.deleteShader(vertexShader);
@@ -2225,7 +2235,6 @@ export class SplatMesh extends Mesh {
         return (modelViewProjMatrix, outComputedDistances) => {
             if (!this.renderer) return;
 
-            // console.time("gpu_compute_distances");
             const gl = this.renderer.getContext();
 
             const currentVao = gl.getParameter(gl.VERTEX_ARRAY_BINDING);
@@ -2315,8 +2324,6 @@ export class SplatMesh extends Mesh {
                                 gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
                                 if (currentVao) gl.bindVertexArray(currentVao);
-
-                                // console.timeEnd("gpu_compute_distances");
 
                                 resolve();
                             }

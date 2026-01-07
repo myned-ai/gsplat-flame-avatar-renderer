@@ -2,15 +2,19 @@
   "name": "@myned-ai/gsplat-flame-avatar-renderer",
   "version": "1.0.5",
   "description": "FLAME-enabled Gaussian Splatting library for animated avatars with ARKit blendshape support",
-  "main": "dist/gsplat-flame-avatar-renderer.cjs.js",
-  "module": "dist/gsplat-flame-avatar-renderer.esm.js",
+  "main": "dist/gsplat-flame-avatar-renderer.cjs.min.js",
+  "module": "dist/gsplat-flame-avatar-renderer.esm.min.js",
   "types": "dist/index.d.ts",
   "type": "module",
   "exports": {
     ".": {
-      "import": "./dist/gsplat-flame-avatar-renderer.esm.js",
-      "require": "./dist/gsplat-flame-avatar-renderer.cjs.js",
-      "types": "./dist/index.d.ts"
+      "import": "./dist/gsplat-flame-avatar-renderer.esm.min.js",
+      "require": "./dist/gsplat-flame-avatar-renderer.cjs.min.js",
+      "types": "./dist/index.d.ts",
+      "development": {
+        "import": "./dist/gsplat-flame-avatar-renderer.esm.js",
+        "require": "./dist/gsplat-flame-avatar-renderer.cjs.js"
+      }
     }
   },
   "scripts": {

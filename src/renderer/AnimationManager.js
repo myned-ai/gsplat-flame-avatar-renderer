@@ -1,12 +1,15 @@
 /**
  * AnimationManager
- * 
+ *
  * Derived from gaussian-splat-renderer-for-lam
  * Manages animation state machine with Three.js AnimationMixer.
  */
 
 import { LoopOnce, LoopRepeat } from 'three';
 import { TYVoiceChatState } from './AppConstants.js';
+import { getLogger } from '../utils/Logger.js';
+
+const logger = getLogger('AnimationManager');
 
 /**
  * Base State class for animation states
@@ -256,7 +259,7 @@ class Think extends State {
 class Speak extends State {
     constructor(actions, isGroup) {
         super(actions, isGroup);
-        console.log('[SPEAK] Initialized with', actions?.length || 0, 'actions, isGroup:', isGroup);
+        logger.debug('[SPEAK] Initialized with', actions?.length || 0, 'actions, isGroup:', isGroup);
     }
 
     /**
@@ -271,7 +274,7 @@ class Speak extends State {
         // Safety check: return early if no actions available
         if (!this.actions || this.actions.length === 0) {
             if (!this._warnedNoActions) {
-                console.warn('[SPEAK] No actions available!');
+                logger.warn('[SPEAK] No actions available!');
                 this._warnedNoActions = true;
             }
             return;
@@ -283,7 +286,7 @@ class Speak extends State {
             this.isPlaying === false) {
             // Randomly select initial animation
             this.stage = Math.ceil(this.getRandomNumber(0, this.actions.length - 1));
-            console.log('[SPEAK] Starting animation, stage:', this.stage, 'of', this.actions.length);
+            logger.debug('[SPEAK] Starting animation, stage:', this.stage, 'of', this.actions.length);
             this.actions[this.stage].time = 0;
             this.actions[this.stage].play();
             AnimationManager.SetWeight(this.actions[this.stage], 1.0);
@@ -304,7 +307,7 @@ class Speak extends State {
                 const lastAction = this.actions[this.stage];
                 // Pick a different random animation
                 this.stage = (this.stage + Math.ceil(this.getRandomNumber(1, this.actions.length - 1))) % this.actions.length;
-                console.log('[SPEAK] Cycling to next animation, stage:', this.stage);
+                logger.debug('[SPEAK] Cycling to next animation, stage:', this.stage);
                 this.actions[this.stage].time = 0;
                 this.actions[this.stage].play();
                 AnimationManager.SetWeight(this.actions[this.stage], 1.0);
