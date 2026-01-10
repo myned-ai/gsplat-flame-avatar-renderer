@@ -148,6 +148,9 @@ export class Viewer {
     );
     this.backgroundColor = options.backgroundColor;
 
+    // Iris occlusion configuration for FLAME avatars
+    this.irisOcclusionConfig = options.irisOcclusionConfig || null;
+
     // The initial focal point of the camera and center of the camera's orbit (only used when the viewer uses its own camera).
     if (!options.initialCameraLookAt) options.initialCameraLookAt = [0, 0, 0];
     this.initialCameraLookAt = new Vector3().fromArray(
@@ -443,11 +446,12 @@ export class Viewer {
       this.logLevel,
       this.sphericalHarmonicsDegree,
       this.sceneFadeInRateMultiplier,
-      this.kernel2DSize
+      this.kernel2DSize,
+      this.irisOcclusionConfig  // Pass iris config to constructor
     );
 
-    // Pass iris occlusion config if loaded
-    this.splatMesh.irisOcclusionConfig = this.irisOcclusionConfig;
+    // Config is now set via constructor parameter
+    // this.splatMesh.irisOcclusionConfig = this.irisOcclusionConfig;
     this.splatMesh.frustumCulled = false;
     if (this.onSplatMeshChangedCallback) this.onSplatMeshChangedCallback();
   }

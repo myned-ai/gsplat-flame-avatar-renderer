@@ -293,13 +293,13 @@ export class SplatMaterial3D {
             fragmentShaderSource += `
                 float finalOpacity = opacity;
 
-                // Smooth fade: iris fades out as eye closes (blink increases)
-                // smoothstep(0.1, 0.5, blink) = 0 when blink<0.1, 1 when blink>0.5
+                // Very narrow fade window at high blink values only
+                // Iris stays visible until eye is almost completely closed
                 if (isRightIris) {
-                    float fadeFactor = 1.0 - smoothstep(0.1, 0.5, eyeBlinkRight);
+                    float fadeFactor = 1.0 - smoothstep(0.5, 0.7, eyeBlinkRight);
                     finalOpacity = opacity * fadeFactor;
                 } else if (isLeftIris) {
-                    float fadeFactor = 1.0 - smoothstep(0.1, 0.5, eyeBlinkLeft);
+                    float fadeFactor = 1.0 - smoothstep(0.5, 0.7, eyeBlinkLeft);
                     finalOpacity = opacity * fadeFactor;
                 }
 

@@ -83,6 +83,36 @@ Creates a new renderer instance with proper resource isolation.
 | `loadProgress` | `(progress: number) => void` | Loading progress callback |
 | `downloadProgress` | `(progress: number) => void` | Download progress callback |
 
+**Advanced Options:**
+
+Additional options for customizing avatar appearance and rendering:
+
+**Scene Reveal & Fade-In**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `sceneRevealMode` | `number` | `0` (Default) | Controls how avatar appears: `0` = Default (fast for final, slow for progressive), `1` = Gradual (slow fade-in), `2` = Instant (immediate) |
+| `sceneFadeInRateMultiplier` | `number` | `1.0` | Speed multiplier for fade-in effect. Higher = faster appearance |
+
+**Camera & View Settings**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `initialCameraPosition` | `Array<number>` | `[0, 10, 15]` | Starting camera position [x, y, z] |
+| `initialCameraRotation` | `Array<number>` | `[0, 0, 0]` | Starting camera rotation [x, y, z] in radians |
+| `initialCameraLookAt` | `Array<number>` | `[0, 0, 0]` | Camera focal point [x, y, z] |
+| `cameraUp` | `Array<number>` | `[0, 1, 0]` | Camera up vector [x, y, z] |
+
+**Rendering Quality**
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `antialiased` | `boolean` | `false` | Enable anti-aliasing to reduce artifacts at different resolutions |
+| `kernel2DSize` | `number` | `0.3` | Constant added to projected 2D splat scales (affects splat smoothness) |
+| `maxScreenSpaceSplatSize` | `number` | `1024` | Maximum screen-space splat size in pixels |
+| `halfPrecisionCovariancesOnGPU` | `boolean` | `false` | Use 16-bit float for GPU covariances (better performance, slight quality loss) |
+| `ignoreDevicePixelRatio` | `boolean` | `false` | Force device pixel ratio to 1 for better performance on high-DPI displays |
+
 #### `renderer.dispose()`
 
 Cleans up all resources (WebGL context, textures, workers, event listeners). **Always call this when you're done with a renderer instance** to prevent memory leaks.

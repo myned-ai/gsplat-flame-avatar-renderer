@@ -327,7 +327,7 @@ export class SplatMesh extends Mesh {
     constructor(splatRenderMode = SplatRenderMode.ThreeD, dynamicMode = false, enableOptionalEffects = false,
                 halfPrecisionCovariancesOnGPU = false, devicePixelRatio = 1, enableDistancesComputationOnGPU = true,
                 integerBasedDistancesComputation = false, antialiased = false, maxScreenSpaceSplatSize = 1024, logLevel = LogLevel.None,
-                sphericalHarmonicsDegree = 0, sceneFadeInRateMultiplier = 1.0, kernel2DSize = 0.3) {
+                sphericalHarmonicsDegree = 0, sceneFadeInRateMultiplier = 1.0, kernel2DSize = 0.3, irisOcclusionConfig = null) {
         super(dummyGeometry, dummyMaterial);
 
         // Reference to a Three.js renderer
@@ -419,7 +419,7 @@ export class SplatMesh extends Mesh {
         this.globalSplatIndexToSceneIndexMap = [];
 
         // Optional iris occlusion configuration from avatar ZIP
-        this.irisOcclusionConfig = null;
+        this.irisOcclusionConfig = irisOcclusionConfig;
 
         this.lastBuildSplatCount = 0;
         this.lastBuildScenes = [];

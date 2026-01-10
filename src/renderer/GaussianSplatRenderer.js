@@ -27,6 +27,7 @@ import { TYVoiceChatState } from './AppConstants.js';
 import { AnimationManager } from './AnimationManager.js';
 import { Viewer } from '../core/Viewer.js';
 import { SceneFormat } from '../enums/SceneFormat.js';
+import { SceneRevealMode } from '../enums/SceneRevealMode.js';
 
 // Import new utilities and error classes
 import { getLogger } from '../utils/Logger.js';
@@ -290,6 +291,26 @@ export class GaussianSplatRenderer {
             renderer.getChatState = options?.getChatState;
             renderer.getExpressionData = options?.getExpressionData;
 
+            // Load iris occlusion configuration BEFORE creating viewer (optional)
+            logger.debug('Checking for iris_occlusion.json');
+            let irisOcclusionConfig = null;
+            try {
+                irisOcclusionConfig = await renderer._loadJsonFromZip(fileName + '/iris_occlusion.json');
+                if (irisOcclusionConfig) {
+                    logger.info('Iris occlusion configuration loaded', {
+                        rightIrisRanges: irisOcclusionConfig.right_iris?.length ?? 0,
+                        leftIrisRanges: irisOcclusionConfig.left_iris?.length ?? 0
+                    });
+                    renderer.irisOcclusionConfig = irisOcclusionConfig;
+                } else {
+                    logger.debug('No iris_occlusion.json found, iris occlusion will be disabled');
+                }
+            } catch (error) {
+                // Log but don't fail - iris occlusion is optional
+                logger.warn('Failed to load iris_occlusion.json, continuing without it', { error: error.message });
+                renderer.irisOcclusionConfig = null;
+            }
+
             // Create Viewer with proper error handling
             logger.debug('Creating Viewer instance');
             try {
@@ -300,7 +321,10 @@ export class GaussianSplatRenderer {
                     initialCameraPosition: [cameraPos.x, cameraPos.y, cameraPos.z],
                     initialCameraRotation: [cameraRotation.x, cameraRotation.y, cameraRotation.z],
                     sphericalHarmonicsDegree: 0,
-                    backgroundColor: backgroundColor
+                    backgroundColor: backgroundColor,
+                    sceneRevealMode: SceneRevealMode.Default,  // Default reveal mode
+                    sceneFadeInRateMultiplier: 3.0,  // 3x faster fade-in
+                    irisOcclusionConfig: irisOcclusionConfig  // Pass iris config to viewer
                 });
             } catch (error) {
                 throw new InitializationError(
@@ -341,28 +365,6 @@ export class GaussianSplatRenderer {
                     fileName + '/offset.ply',
                     error
                 );
-            }
-
-            // Load iris occlusion configuration (optional)
-            logger.debug('Checking for iris_occlusion.json');
-            let irisOcclusionConfig = null;
-            try {
-                irisOcclusionConfig = await renderer._loadJsonFromZip(fileName + '/iris_occlusion.json');
-                if (irisOcclusionConfig) {
-                    logger.info('Iris occlusion configuration loaded', {
-                        rightIrisRanges: irisOcclusionConfig.right_iris?.length ?? 0,
-                        leftIrisRanges: irisOcclusionConfig.left_iris?.length ?? 0
-                    });
-                    renderer.irisOcclusionConfig = irisOcclusionConfig;
-                    // Pass to viewer for material generation
-                    renderer.viewer.irisOcclusionConfig = irisOcclusionConfig;
-                } else {
-                    logger.debug('No iris_occlusion.json found, iris occlusion will be disabled');
-                }
-            } catch (error) {
-                // Log but don't fail - iris occlusion is optional
-                logger.warn('Failed to load iris_occlusion.json, continuing without it', { error: error.message });
-                renderer.irisOcclusionConfig = null;
             }
 
             // Progress callback with error isolation
