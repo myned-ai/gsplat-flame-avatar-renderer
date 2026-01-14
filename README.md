@@ -1,8 +1,8 @@
-# gsplat-flame-avatar-renderer
+# GSplat FLAME Avatar Renderer
 
 [![npm version](https://img.shields.io/npm/v/@myned-ai/gsplat-flame-avatar-renderer.svg)](https://www.npmjs.com/package/@myned-ai/gsplat-flame-avatar-renderer)
 
-A specialized Gaussian Splatting library for rendering animated 3D avatars with FLAME parametric head model support, LAM (Large Avatar Model) head avatars, and ARKit blendshape compatibility.
+A specialized Gaussian Splatting JavaScript library for rendering animated 3D avatars in the browser with FLAME parametric head model support, LAM (Large Avatar Model) head avatars, and ARKit blendshape compatibility.
 
 ---
 
@@ -83,65 +83,6 @@ Creates a new renderer instance with proper resource isolation.
 | `loadProgress` | `(progress: number) => void` | Loading progress callback |
 | `downloadProgress` | `(progress: number) => void` | Download progress callback |
 
-**Advanced Options:**
-
-Additional options for customizing avatar appearance and rendering:
-
-**Scene Reveal & Fade-In**
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `sceneRevealMode` | `number` | `0` (Default) | Controls how avatar appears: `0` = Default (fast for final, slow for progressive), `1` = Gradual (slow fade-in), `2` = Instant (immediate) |
-| `sceneFadeInRateMultiplier` | `number` | `1.0` | Speed multiplier for fade-in effect. Higher = faster appearance |
-
-**Camera & View Settings**
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `initialCameraPosition` | `Array<number>` | `[0, 10, 15]` | Starting camera position [x, y, z] |
-| `initialCameraRotation` | `Array<number>` | `[0, 0, 0]` | Starting camera rotation [x, y, z] in radians |
-| `initialCameraLookAt` | `Array<number>` | `[0, 0, 0]` | Camera focal point [x, y, z] |
-| `cameraUp` | `Array<number>` | `[0, 1, 0]` | Camera up vector [x, y, z] |
-
-**Rendering Quality**
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `antialiased` | `boolean` | `false` | Enable anti-aliasing to reduce artifacts at different resolutions |
-| `kernel2DSize` | `number` | `0.3` | Constant added to projected 2D splat scales (affects splat smoothness) |
-| `maxScreenSpaceSplatSize` | `number` | `1024` | Maximum screen-space splat size in pixels |
-| `halfPrecisionCovariancesOnGPU` | `boolean` | `false` | Use 16-bit float for GPU covariances (better performance, slight quality loss) |
-| `ignoreDevicePixelRatio` | `boolean` | `false` | Force device pixel ratio to 1 for better performance on high-DPI displays |
-
-#### `renderer.dispose()`
-
-Cleans up all resources (WebGL context, textures, workers, event listeners). **Always call this when you're done with a renderer instance** to prevent memory leaks.
-
-```javascript
-// Clean up when done
-renderer.dispose();
-```
-
-#### Migration from v1.0.5
-
-If you're upgrading from v1.0.5 or earlier:
-
-```javascript
-// OLD (still works but deprecated)
-const renderer = await GaussianSplatRenderer.getInstance(container, path, options);
-
-// NEW (recommended)
-const renderer = await GaussianSplatRenderer.create(container, path, options);
-// ... use renderer ...
-renderer.dispose(); // Don't forget!
-```
-
-**Key Changes:**
-- Each `create()` call returns a **new independent instance** (no longer a singleton)
-- You can now have **multiple renderers** on the same page
-- Each instance has its own canvas element
-- **Must call `dispose()`** when finished to clean up resources
-
 ### Animation States
 
 The renderer supports the following states via `getChatState`:
@@ -210,9 +151,9 @@ If `iris_occlusion.json` is not present, the renderer will work normally without
 
 ---
 
-## Architecture Overview
+## Rendering Pipeline
 
-### Rendering Pipeline
+### Overview
 
 ```
 Loading (PLY) → Initialization (Viewer) → Scene Setup (SplatMesh) → Animation (FLAME)
@@ -239,60 +180,6 @@ The library supports hybrid rendering where Gaussian Splat positions are deforme
 
 ---
 
-## Directory Structure
-
-| Module | Files | Description |
-|--------|-------|-------------|
-| `src/api/` | 1 | Public API layer |
-| `src/buffers/` | 5 | GPU buffer management (SplatBuffer, partitioning) |
-| `src/core/` | 6 | Rendering engine (Viewer, SplatMesh, SplatTree) |
-| `src/enums/` | 8 | Constants and enumerations |
-| `src/errors/` | 1 | Custom error classes (ValidationError, NetworkError, ParseError, etc.) |
-| `src/flame/` | 5 | FLAME model integration (FlameAnimator, textures) |
-| `src/loaders/` | 6 | PLY format loader (INRIA v1) |
-| `src/materials/` | 4 | WebGL shaders (SplatMaterial2D/3D, conditional iris occlusion) |
-| `src/raycaster/` | 4 | Intersection testing |
-| `src/renderer/` | 4 | Application layer (GaussianSplatRenderer, AnimationManager) |
-| `src/utils/` | 8 | Shared utilities (validation, logging, object pooling, blob management) |
-| `src/worker/` | 2 | WebAssembly sorting worker |
-
-### Key Components
-
-| Component | Purpose |
-|-----------|---------|
-| **GaussianSplatRenderer** | Main entry point, ZIP loading, render loop, asset management |
-| **Viewer** | Scene management, camera, render pipeline |
-| **SplatMesh** | GPU textures, instanced geometry, iris config forwarding |
-| **SplatMaterial3D** | WebGL shader generation, conditional iris occlusion code |
-| **FlameAnimator** | Bone rotations, blendshape weights |
-| **FlameTextureManager** | GPU texture uploads for FLAME data |
-| **AnimationManager** | State machine (Idle, Listen, Think, Speak) |
-| **PlyLoader** | Loading PLY files from ZIP with validation |
-| **SortWorker** | WebAssembly depth sorting |
-| **ValidationUtils** | Input validation (URLs, paths, ranges, types) |
-| **Logger** | Structured logging system |
-| **ObjectPool** | Object pooling for performance (Vector3, Quaternion) |
-| **BlobUrlManager** | Blob URL lifecycle management |
-
----
-
-## Build Output
-
-Rollup produces optimized ESM and CommonJS bundles in `dist/`:
-
-| File | Size | Format | Source Maps |
-|------|------|--------|-------------|
-| `gsplat-flame-avatar-renderer.esm.min.js`| 244 KB | ES Module (production, minified) | External (.map) |
-| `gsplat-flame-avatar-renderer.cjs.min.js`| 246 KB | CommonJS (production, minified) | External (.map) |
-| `gsplat-flame-avatar-renderer.esm.js` | 2.1 MB | ES Module (development, unminified) | Inline |
-| `gsplat-flame-avatar-renderer.cjs.js` | 2.1 MB | CommonJS (development, unminified) | Inline |
-
-** The minified builds are used by default** when importing the package. Development builds are automatically selected when `NODE_ENV=development`.
-
-Type declarations are available at `dist/index.d.ts`, and the package publishes the `src/` folder for source inspection.
-
----
-
 ## Browser Compatibility
 
 ### Desktop
@@ -314,21 +201,6 @@ Type declarations are available at `dist/index.d.ts`, and the package publishes 
 - iOS Safari: WebGL context may be lost during backgrounding
 - Android: Performance varies significantly by device
 - Firefox Android: SharedArrayBuffer requires site isolation
----
-
-## Deployment Requirements
-
-### SharedArrayBuffer Configuration
-
-This library uses WebAssembly with SharedArrayBuffer for high-performance splat sorting. To deploy in production, your server **must** send the following HTTP headers:
-
-```
-Cross-Origin-Embedder-Policy: require-corp
-Cross-Origin-Opener-Policy: same-origin
-```
-
-Without these headers, SharedArrayBuffer will be disabled by the browser and the renderer will fail to initialize.
-
 ---
 
 ## Credits & Attribution
