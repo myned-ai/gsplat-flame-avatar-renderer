@@ -65,11 +65,11 @@ const motionConfig = {
 // Animation configuration - defines how animation clips are distributed to states
 // The animation.glb contains clips in order: hello(2), idle(1), listen(0), speak(6), think(3)
 const animationConfig = {
-    hello: { size: 2, isGroup: false },
-    idle: { size: 1, isGroup: false },
-    listen: { size: 0, isGroup: false },
-    speak: { size: 6, isGroup: false },
-    think: { size: 3, isGroup: true },
+    hello: { size: 0, isGroup: false }, // No 'hello' animations
+    speak: { size: 3, isGroup: true },   // First 3 animations are for speaking
+    think: { size: 0, isGroup: false },  // 'think' will share 'speak' animations
+    listen: { size: 0, isGroup: false}, // 'listen' will share 'idle' animations
+    idle: { size: 1, isGroup: false },   // The next animation is for idle
     other: []
 };
 

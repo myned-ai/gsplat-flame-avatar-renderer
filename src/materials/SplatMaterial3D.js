@@ -252,54 +252,155 @@ export class SplatMaterial3D {
                     discard;
                 `;
 
-        // Generate iris occlusion code only if config exists
-        if (irisOcclusionConfig && (irisOcclusionConfig.right_iris || irisOcclusionConfig.left_iris)) {
+        // Check availability of configuring keys
+        const hasKey = (obj, key) => obj && obj[key] && obj[key].length > 0;
+        const hasRight = hasKey(irisOcclusionConfig, 'right_iris');
+        const hasRightNorth = hasKey(irisOcclusionConfig, 'right_iris_north');
+        const hasRightSouth = hasKey(irisOcclusionConfig, 'right_iris_south');
+        
+        const hasLeft = hasKey(irisOcclusionConfig, 'left_iris');
+        const hasLeftNorth = hasKey(irisOcclusionConfig, 'left_iris_north');
+        const hasLeftSouth = hasKey(irisOcclusionConfig, 'left_iris_south');
+
+        const anyIrisConfig = hasRight || hasRightNorth || hasRightSouth || hasLeft || hasLeftNorth || hasLeftSouth;
+
+        if (anyIrisConfig) {
             fragmentShaderSource += `
                 float idx = vSplatIndex.x;
                 `;
 
-            // Generate right iris checks
-            if (irisOcclusionConfig.right_iris && irisOcclusionConfig.right_iris.length > 0) {
-                const rightConditions = irisOcclusionConfig.right_iris
+            // --- Right Iris Logic ---
+            if (hasRightNorth || hasRightSouth) {
+                // North
+                if (hasRightNorth) {
+                    const conditions = irisOcclusionConfig.right_iris_north
+                        .map(([start, end]) => `(idx >= ${start}.0 && idx <= ${end}.0)`)
+                        .join(' ||\n                                   ');
+                    fragmentShaderSource += `
+                bool isRightIrisNorth = ${conditions};
+                `;
+                } else {
+                    fragmentShaderSource += `bool isRightIrisNorth = false;`;
+                }
+                
+                // South
+                if (hasRightSouth) {
+                    const conditions = irisOcclusionConfig.right_iris_south
+                        .map(([start, end]) => `(idx >= ${start}.0 && idx <= ${end}.0)`)
+                        .join(' ||\n                                   ');
+                    fragmentShaderSource += `
+                bool isRightIrisSouth = ${conditions};
+                `;
+                } else {
+                    fragmentShaderSource += `bool isRightIrisSouth = false;`;
+                }
+
+                // Fallback Right
+                if (hasRight) {
+                    const conditions = irisOcclusionConfig.right_iris
+                        .map(([start, end]) => `(idx >= ${start}.0 && idx <= ${end}.0)`)
+                        .join(' ||\n                                   ');
+                    fragmentShaderSource += `
+                bool isRightIris = ${conditions} && !isRightIrisNorth && !isRightIrisSouth;
+                `;
+                } else {
+                    fragmentShaderSource += `bool isRightIris = false;`;
+                }
+            } else if (hasRight) {
+                const conditions = irisOcclusionConfig.right_iris
                     .map(([start, end]) => `(idx >= ${start}.0 && idx <= ${end}.0)`)
                     .join(' ||\n                                   ');
 
                 fragmentShaderSource += `
-                // Check if this splat is part of right iris
-                bool isRightIris = ${rightConditions};
+                bool isRightIris = ${conditions};
+                bool isRightIrisNorth = false;
+                bool isRightIrisSouth = false;
                 `;
             } else {
                 fragmentShaderSource += `
                 bool isRightIris = false;
+                bool isRightIrisNorth = false;
+                bool isRightIrisSouth = false;
                 `;
             }
 
-            // Generate left iris checks
-            if (irisOcclusionConfig.left_iris && irisOcclusionConfig.left_iris.length > 0) {
-                const leftConditions = irisOcclusionConfig.left_iris
+            // --- Left Iris Logic ---
+            if (hasLeftNorth || hasLeftSouth) {
+                // North
+                if (hasLeftNorth) {
+                    const conditions = irisOcclusionConfig.left_iris_north
+                        .map(([start, end]) => `(idx >= ${start}.0 && idx <= ${end}.0)`)
+                        .join(' ||\n                                   ');
+                    fragmentShaderSource += `
+                bool isLeftIrisNorth = ${conditions};
+                `;
+                } else {
+                    fragmentShaderSource += `bool isLeftIrisNorth = false;`;
+                }
+
+                // South
+                if (hasLeftSouth) {
+                    const conditions = irisOcclusionConfig.left_iris_south
+                        .map(([start, end]) => `(idx >= ${start}.0 && idx <= ${end}.0)`)
+                        .join(' ||\n                                   ');
+                    fragmentShaderSource += `
+                bool isLeftIrisSouth = ${conditions};
+                `;
+                } else {
+                    fragmentShaderSource += `bool isLeftIrisSouth = false;`;
+                }
+
+                // Fallback Left
+                if (hasLeft) {
+                    const conditions = irisOcclusionConfig.left_iris
+                        .map(([start, end]) => `(idx >= ${start}.0 && idx <= ${end}.0)`)
+                        .join(' ||\n                                   ');
+                    fragmentShaderSource += `
+                bool isLeftIris = ${conditions} && !isLeftIrisNorth && !isLeftIrisSouth;
+                `;
+                } else {
+                    fragmentShaderSource += `bool isLeftIris = false;`;
+                }
+            } else if (hasLeft) {
+                const conditions = irisOcclusionConfig.left_iris
                     .map(([start, end]) => `(idx >= ${start}.0 && idx <= ${end}.0)`)
                     .join(' ||\n                                  ');
 
                 fragmentShaderSource += `
-                // Check if this splat is part of left iris
-                bool isLeftIris = ${leftConditions};
+                bool isLeftIris = ${conditions};
+                bool isLeftIrisNorth = false;
+                bool isLeftIrisSouth = false;
                 `;
             } else {
                 fragmentShaderSource += `
                 bool isLeftIris = false;
+                bool isLeftIrisNorth = false;
+                bool isLeftIrisSouth = false;
                 `;
             }
 
             fragmentShaderSource += `
                 float finalOpacity = opacity;
 
-                // Very narrow fade window at high blink values only
-                // Iris stays visible until eye is almost completely closed
                 if (isRightIris) {
-                    float fadeFactor = 1.0 - smoothstep(0.5, 0.7, eyeBlinkRight);
+                    float fadeFactor = 1.0 - smoothstep(0.45, 0.65, eyeBlinkRight);
+                    finalOpacity = opacity * fadeFactor;
+                } else if (isRightIrisNorth) {
+                    // North part gets covered very early by upper eyelid
+                    float fadeFactor = 1.0 - smoothstep(0.0, 0.25, eyeBlinkRight);
+                    finalOpacity = opacity * fadeFactor;
+                } else if (isRightIrisSouth) {
+                    // South part gets covered much later
+                    float fadeFactor = 1.0 - smoothstep(0.65, 0.9, eyeBlinkRight);
                     finalOpacity = opacity * fadeFactor;
                 } else if (isLeftIris) {
-                    float fadeFactor = 1.0 - smoothstep(0.5, 0.7, eyeBlinkLeft);
+                    float fadeFactor = 1.0 - smoothstep(0.45, 0.65, eyeBlinkLeft);
+                    finalOpacity = opacity * fadeFactor;
+                } else if (isLeftIrisNorth) {
+                    float fadeFactor = 1.0 - smoothstep(0.0, 0.25, eyeBlinkLeft);
+                    finalOpacity = opacity * fadeFactor;
+                } else if (isLeftIrisSouth) {
+                     float fadeFactor = 1.0 - smoothstep(0.65, 0.9, eyeBlinkLeft);
                     finalOpacity = opacity * fadeFactor;
                 }
 
