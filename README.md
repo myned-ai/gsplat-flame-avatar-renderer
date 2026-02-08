@@ -134,14 +134,16 @@ An example of `iris_occlusion.json` :
 
 ```json
 {
-  "right_iris": [
-    [4000, 4100],
-    [3930, 3970]
+  "right_iris_north": [
+    [4000, 4050],
+    ...
   ],
-  "left_iris": [
-    [4470, 4605],
-    [18370, 18799]
-  ]
+  "right_iris_south": [
+    [4051, 4100],
+    ...
+  ],
+  "left_iris_north": [ ... ],
+  "left_iris_south": [ ... ]
 }
 ```
 
